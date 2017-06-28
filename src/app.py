@@ -57,7 +57,7 @@ class Dispatcher(object):
             if slack_user_id != self.teabot.slack_id:
                 return
 
-            command = command.strip()
+            command = command.strip().lower()
             self.command_body = command_body.strip()
             self.request_user = UserManager.get_by_slack_id(event[0].get('user', ''))
             if not self.request_user:
@@ -78,7 +78,7 @@ class Dispatcher(object):
 
         limit = None
         stripped_command_body = self.command_body.strip()
-        if stripped_command_body:
+        if stripped_command_body and stripped_command_body.isnumeric():
             try:
                 limit = int(stripped_command_body)
                 if limit <= 1:
@@ -112,7 +112,10 @@ class Dispatcher(object):
         leaderboard = self.session.query(User).filter(User.tea_type.isnot(None)).order_by(User.teas_brewed.desc()).all()
         _message = '*Teabot Leaderboard*\n\n'
         for index, user in enumerate(leaderboard):
-            _message += '%s. _%s_ has brewed *%s* cups of tea\n' % (index + 1, user.real_name, user.teas_brewed)
+            if user.teas_brewed > 0:
+                if index == 0:
+                    prefix = ':trophy:'
+                _message += '%s. %s_%s_ has brewed *%s* cups of tea\n' % (index + 1, prefix or '', user.real_name, user.teas_brewed)
 
         return post_message(_message, self.channel)
 
