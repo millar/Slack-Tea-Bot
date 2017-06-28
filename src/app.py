@@ -113,9 +113,10 @@ class Dispatcher(object):
         _message = '*Teabot Leaderboard*\n\n'
         for index, user in enumerate(leaderboard):
             if user.teas_brewed > 0:
+                prefix = ''
                 if index == 0:
                     prefix = ':trophy:'
-                _message += '%s. %s_%s_ has brewed *%s* cups of tea\n' % (index + 1, prefix or '', user.real_name, user.teas_brewed)
+                _message += '%s. %s_%s_ has brewed *%s* cups of tea\n' % (index + 1, prefix, user.real_name, user.teas_brewed)
 
         return post_message(_message, self.channel)
 
