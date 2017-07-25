@@ -1,7 +1,9 @@
 import time
+import random
 
 from functools import wraps
 from threading import Thread
+from sqlalchemy import func
 
 from conf import BREW_COUNTDOWN
 from models import Server, Customer, get_session, User
@@ -51,10 +53,25 @@ def _brew_countdown(channel):
     server.user.nomination_points += 1
     session.commit()
 
-    return post_message("\n".join(
-        ['Time is up!'] +
-        ['%s wants %s' % (customer.user.display_name, customer.user.tea_type) for customer in customers]
-    ), channel)
+    colors = ["#1d2d3b", "#52aad8", "#273a4b"]
+
+    attachments = []
+    index = 0
+    for customer in customers:
+        attachments.append({
+            "author_icon": customer.user.picture,
+            "author_name": "@%s" % customer.user.username,
+            "color": colors[index % len(colors)],
+            "text": "%s would like %s" % (customer.user.display_name, customer.user.tea_type),
+            "footer": "%d brewed | %d received | %s consumed" % (customer.user.teas_brewed, customer.user.teas_received, customer.user.teas_drunk),
+        })
+        index = index + 1
+
+    return post_message(
+        'Time is up!',
+        channel,
+        attachments=attachments
+    )
 
 
 def update_slack_users():
@@ -62,6 +79,10 @@ def update_slack_users():
     Periodic task to update slack user info
     """
     session = get_session()
+    try:
+        session.execute("ALTER TABLE user ADD COLUMN picture VARCHAR(255);")
+    except Exception:
+        pass
     slack_users = sc.api_call('users.list')
     if not slack_users['ok']:
         return
@@ -73,6 +94,7 @@ def update_slack_users():
         real_name = member.get('profile').get('real_name', '')
         first_name = member.get('profile').get('first_name', '')
         last_name = member.get('profile').get('last_name', '')
+        picture = member.get('profile').get('image_48', '')
         deleted = member.get('profile').get('deleted')
 
         user = session.query(User).filter_by(slack_id=slack_id).first()
@@ -83,6 +105,7 @@ def update_slack_users():
             user.first_name = first_name
             user.last_name = last_name
             user.deleted = deleted
+            user.picture = picture
         else:
             session.add(User(
                 slack_id=slack_id,
@@ -91,6 +114,7 @@ def update_slack_users():
                 real_name=real_name,
                 first_name=first_name,
                 last_name=last_name,
+                picture=picture,
                 deleted=deleted
             ))
 
