@@ -158,7 +158,6 @@ class Dispatcher(object):
                 if index == 0:
                     prefix = ':trophy:'
                 _message += '%s. %s_%s_ has brewed *%s* cups of tea\n' % (index + 1, prefix or '', real_name, teas_brewed)
-        #
         return post_message(_message, self.channel)
 
     @require_registration
