@@ -2,17 +2,25 @@ import random
 import re
 import time
 
+from datetime import datetime, timedelta
+from sqlalchemy import func
+
 from conf import HELP_TEXT, NOMINATION_POINTS_REQUIRED
 from managers import UserManager, ServerManager
 from models import Server, Customer, User, get_session, Session
 from slack_client import sc
 from tasks import brew_countdown, update_slack_users
-from utils import post_message
+from utils import post_message, add_reaction
 
 COMMAND_RE = re.compile(
-    r'^<@([\w\d]+)>:? (register|brew|me|stats|leaderboard|nominate|update_users|yo|ping|help)\s?(.*)?$',
+    r'^<@([\w\d]+)>:? (register|brew|me|please|pls|yes|stats|leaderboard|nominate|update_users|yo|ping|help)\s?(.*)$',
     flags=re.IGNORECASE
 )
+ALIASES = {
+    'please': 'me',
+    'pls': 'me',
+    'yes': 'me',
+}
 MENTION_RE = re.compile(r'^<@([\w\d]+)>$')
 MENTION_ANYWHERE_RE = re.compile(r'<@([\w\d]+)>')
 
@@ -50,10 +58,13 @@ class Dispatcher(object):
 
     def dispatch(self, event):
         self.channel = event[0].get('channel', '')
+        self.timestamp = event[0].get('ts', '')
         text = event[0].get('text', '')
 
         try:
             slack_user_id, command, command_body = COMMAND_RE.search(text).groups()
+            if command in ALIASES:
+                command = ALIASES[command]
             if slack_user_id != self.teabot.slack_id:
                 return
 
@@ -93,30 +104,61 @@ class Dispatcher(object):
         self.session.commit()
         brew_countdown(self.channel)
 
+        add_reaction(random.choice(["tea", "raised_hands", "thumbsup", "clap"]), self.channel, self.timestamp)
+
         return post_message(
             random.choice([
-                '%s is making %s tea, who is in?' % (
+                '%s is making%s tea, who is in?' % (
                     self.request_user.display_name,
-                    '' if limit is None else '%s cups of' % limit
+                    '' if limit is None else ' %s cups of' % limit
                 ),
                 'Who wants a cuppa?'
             ]),
             self.channel,
-            gif_search_phrase='' if random.random() >= 0.3 else 'tea time'
+            gif_search_phrase='' if random.random() >= 0.7 else random.choice(['team time', 'cuppa', 'brew', 'teapot', 'tea party'])
         )
 
     def help(self):
         return post_message(HELP_TEXT,  self.channel)
 
     def leaderboard(self):
-        leaderboard = self.session.query(User).filter(User.tea_type.isnot(None)).order_by(User.teas_brewed.desc()).all()
-        _message = '*Teabot Leaderboard*\n\n'
-        for index, user in enumerate(leaderboard):
-            if user.teas_brewed > 0:
+        since = self.command_body.strip()
+
+        time = datetime.today()
+
+        if since:
+            years = re.compile(r'(^|\s|,\s?)(\d)\s?(y(|ears?))').search(since)
+            if years and int(years.group(2)) > 0:
+                time -= timedelta(days=int(years.group(2)) * 365)
+
+            months = re.compile(r'(^|\s|,\s?)(\d)\s?(m(|onths?))').search(since)
+            if months and int(months.group(2)) > 0:
+                time = time - timedelta(days=int(months.group(2)) * 30)
+
+            weeks = re.compile(r'(^|\s|,\s?)(\d)\s?(w(|eeks?))').search(since)
+            if weeks and int(weeks.group(2)) > 0:
+                time = time - timedelta(weeks=int(weeks.group(2)))
+
+            days = re.compile(r'(^|\s|,\s?)(\d)\s?(d(|ays?))').search(since)
+            if days and int(days.group(2)) > 0:
+                time = time - timedelta(days=int(days.group(2)))
+        else:
+            time = time - timedelta(weeks=12)
+
+        formatted_since = time.replace(hour=0, minute=0).strftime("%d %b, '%y")
+
+        sq = self.session.query(Customer.server_id, func.count(Customer.server_id).label('Count')).group_by(Customer.server_id).subquery()
+        leaderboard = self.session.query(Server, User, func.count(sq.c.Count)).join(User).join(sq, Server.id==sq.c.server_id).group_by(Server.user_id).all()
+        _message = '*Teabot Leaderboard* (since %s)\n\n' % formatted_since
+        for index, result in enumerate(leaderboard):
+            server, user, teas_brewed = result
+            real_name = user.real_name
+            if teas_brewed > 0:
+                prefix = ''
                 if index == 0:
                     prefix = ':trophy:'
-                _message += '%s. %s_%s_ has brewed *%s* cups of tea\n' % (index + 1, prefix or '', user.real_name, user.teas_brewed)
-
+                _message += '%s. %s_%s_ has brewed *%s* cups of tea\n' % (index + 1, prefix or '', real_name, teas_brewed)
+        #
         return post_message(_message, self.channel)
 
     @require_registration
@@ -145,7 +187,10 @@ class Dispatcher(object):
 
         self.session.add(Customer(user_id=self.request_user.id, server_id=server.id))
         self.session.commit()
-        return post_message('Hang tight %s, tea is being served soon' % self.request_user.display_name, self.channel)
+
+        # return post_message('Hang tight %s, tea is being served soon' % self.request_user.display_name, self.channel)
+        add_reaction("thumbsup", self.channel, self.timestamp)
+        add_reaction("tea", self.channel, self.timestamp)
 
     @require_registration
     def nominate(self):

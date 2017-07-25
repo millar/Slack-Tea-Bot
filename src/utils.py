@@ -41,3 +41,11 @@ def post_message(text, channel, attachments=None, mrkdwn=False, gif_search_phras
         mrkdwn=mrkdwn,
         attachments=attachments
     )
+
+def add_reaction(name, channel, ts):
+    return sc.api_call(
+        'reactions.add',
+        channel=channel,
+        name=name,
+        timestamp=ts
+    )

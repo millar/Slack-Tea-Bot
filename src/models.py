@@ -24,6 +24,7 @@ class User(Base):
     real_name = Column(String(255), nullable=True)
     first_name = Column(String(255), nullable=True)
     last_name = Column(String(255), nullable=True)
+    picture = Column(String(255), nullable=True)
     deleted = Column(Boolean, default=False)
 
     nomination_points = Column(Integer, nullable=False, default=0)
