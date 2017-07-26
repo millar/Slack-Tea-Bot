@@ -126,25 +126,25 @@ class Dispatcher(object):
 
         time = datetime.today()
 
-        if since:
-            years = re.compile(r'(^|\s|,\s?)(\d)\s?(y(|ears?))').search(since)
-            if years and int(years.group(2)) > 0:
-                time -= timedelta(days=int(years.group(2)) * 365)
-
-            months = re.compile(r'(^|\s|,\s?)(\d)\s?(m(|onths?))').search(since)
-            if months and int(months.group(2)) > 0:
-                time = time - timedelta(days=int(months.group(2)) * 30)
-
-            weeks = re.compile(r'(^|\s|,\s?)(\d)\s?(w(|eeks?))').search(since)
-            if weeks and int(weeks.group(2)) > 0:
-                time = time - timedelta(weeks=int(weeks.group(2)))
-
-            days = re.compile(r'(^|\s|,\s?)(\d)\s?(d(|ays?))').search(since)
-            if days and int(days.group(2)) > 0:
-                time = time - timedelta(days=int(days.group(2)))
-
-            formatted_since = time.replace(hour=0, minute=0).strftime("%d %b, '%y")
-
+#         if since:
+#             years = re.compile(r'(^|\s|,\s?)(\d)\s?(y(|ears?))').search(since)
+#             if years and int(years.group(2)) > 0:
+#                 time -= timedelta(days=int(years.group(2)) * 365)
+#
+#             months = re.compile(r'(^|\s|,\s?)(\d)\s?(m(|onths?))').search(since)
+#             if months and int(months.group(2)) > 0:
+#                 time = time - timedelta(days=int(months.group(2)) * 30)
+#
+#             weeks = re.compile(r'(^|\s|,\s?)(\d)\s?(w(|eeks?))').search(since)
+#             if weeks and int(weeks.group(2)) > 0:
+#                 time = time - timedelta(weeks=int(weeks.group(2)))
+#
+#             days = re.compile(r'(^|\s|,\s?)(\d)\s?(d(|ays?))').search(since)
+#             if days and int(days.group(2)) > 0:
+#                 time = time - timedelta(days=int(days.group(2)))
+#
+#             formatted_since = time.replace(hour=0, minute=0).strftime("%d %b, '%y")
+        # TODO: actually restict scores based on `time`
         sq = self.session.query(Customer.server_id, func.count(Customer.server_id).label('Count')).group_by(Customer.server_id).subquery()
         leaderboard = self.session.query(Server, User, func.count(sq.c.Count)).join(User).join(sq, Server.id==sq.c.server_id).group_by(Server.user_id).all()
         if since:
