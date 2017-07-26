@@ -122,45 +122,15 @@ class Dispatcher(object):
         return post_message(HELP_TEXT,  self.channel)
 
     def leaderboard(self):
-        # since = self.command_body.strip()
-        since = None
-
-        time = datetime.today()
-
-        if since:
-            years = re.compile(r'(^|\s|,\s?)(\d)\s?(y(|ears?))').search(since)
-            if years and int(years.group(2)) > 0:
-                time -= timedelta(days=int(years.group(2)) * 365)
-
-            months = re.compile(r'(^|\s|,\s?)(\d)\s?(m(|onths?))').search(since)
-            if months and int(months.group(2)) > 0:
-                time = time - timedelta(days=int(months.group(2)) * 30)
-
-            weeks = re.compile(r'(^|\s|,\s?)(\d)\s?(w(|eeks?))').search(since)
-            if weeks and int(weeks.group(2)) > 0:
-                time = time - timedelta(weeks=int(weeks.group(2)))
-
-            days = re.compile(r'(^|\s|,\s?)(\d)\s?(d(|ays?))').search(since)
-            if days and int(days.group(2)) > 0:
-                time = time - timedelta(days=int(days.group(2)))
-
-            formatted_since = time.replace(hour=0, minute=0).strftime("%d %b, '%y")
-
-        # TODO: actually restict scores based on `time`
-        sq = self.session.query(Customer.server_id, func.count(Customer.server_id).label('Count')).group_by(Customer.server_id).subquery()
-        leaderboard = self.session.query(Server, User, func.count(sq.c.Count)).join(User).join(sq, Server.id==sq.c.server_id).group_by(Server.user_id).all()
-        if since:
-            _message = '*Teabot Leaderboard* (since %s)\n\n' % formatted_since
-        else:
-            _message = '*Teabot Leaderboard*\n\n'
-        for index, result in enumerate(leaderboard):
-            server, user, teas_brewed = result
-            real_name = user.real_name
-            if teas_brewed > 0:
+        leaderboard = self.session.query(User).filter(User.tea_type.isnot(None)).order_by(User.teas_brewed.desc()).all()
+        _message = '*Teabot Leaderboard*\n\n'
+        for index, user in enumerate(leaderboard):
+            if user.teas_brewed > 0:
                 prefix = ''
                 if index == 0:
                     prefix = ':trophy:'
-                _message += '%s. %s_%s_ has brewed *%s* cups of tea\n' % (index + 1, prefix or '', real_name, teas_brewed)
+                _message += '%s. %s_%s_ has brewed *%s* cups of tea\n' % (index + 1, prefix, user.real_name, user.teas_brewed)
+
         return post_message(_message, self.channel)
 
     @require_registration
