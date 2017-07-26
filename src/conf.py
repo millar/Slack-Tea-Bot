@@ -4,7 +4,7 @@ SLACK_WEBHOOK_SECRET = os.environ.get('SLACK_WEBHOOK_SECRET')
 
 SQLALCHEMY_ENGINE = 'sqlite:////tmp/test.db'
 
-BREW_COUNTDOWN = 120
+BREW_COUNTDOWN = 20
 
 VERSION = '0.2'
 
