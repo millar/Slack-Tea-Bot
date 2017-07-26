@@ -79,10 +79,6 @@ def update_slack_users():
     Periodic task to update slack user info
     """
     session = get_session()
-    try:
-        session.execute("ALTER TABLE user ADD COLUMN picture VARCHAR(255);")
-    except Exception:
-        pass
     slack_users = sc.api_call('users.list')
     if not slack_users['ok']:
         return
