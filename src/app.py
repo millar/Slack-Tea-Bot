@@ -147,8 +147,8 @@ class Dispatcher(object):
 
         formatted_since = time.replace(hour=0, minute=0).strftime("%d %b, '%y")
 
-        sq = self.session.query(Customer.server_id, func.sum(Customer.server_id).label('Count')).filter(Customer.created >= time).group_by(Customer.server_id).subquery()
-        leaderboard = self.session.query(Server, User, func.count(sq.c.Count)).join(User).join(sq, Server.id==sq.c.server_id).group_by(Server.user_id).all()
+        sq = self.session.query(Customer.server_id, func.count(Customer.server_id).label('Count')).filter(Customer.created >= time).group_by(Customer.server_id).subquery()
+        leaderboard = self.session.query(Server, User, func.sum(sq.c.Count)).join(User).join(sq, Server.id==sq.c.server_id).group_by(Server.user_id).all()
         _message = '*Teabot Leaderboard* (since %s)\n\n' % formatted_since
 
         results = [{'user': user, 'teas_brewed': teas_brewed} for _, user, teas_brewed in leaderboard]
