@@ -142,14 +142,15 @@ class Dispatcher(object):
             days = re.compile(r'(^|\s|,\s?)(\d)\s?(d(|ays?))').search(since)
             if days and int(days.group(2)) > 0:
                 time = time - timedelta(days=int(days.group(2)))
-        else:
-            time = time - timedelta(weeks=12)
 
-        formatted_since = time.replace(hour=0, minute=0).strftime("%d %b, '%y")
+            formatted_since = time.replace(hour=0, minute=0).strftime("%d %b, '%y")
 
         sq = self.session.query(Customer.server_id, func.count(Customer.server_id).label('Count')).group_by(Customer.server_id).subquery()
         leaderboard = self.session.query(Server, User, func.count(sq.c.Count)).join(User).join(sq, Server.id==sq.c.server_id).group_by(Server.user_id).all()
-        _message = '*Teabot Leaderboard* (since %s)\n\n' % formatted_since
+        if since:
+            _message = '*Teabot Leaderboard* (since %s)\n\n' % formatted_since
+        else:
+            _message = '*Teabot Leaderboard*\n\n'
         for index, result in enumerate(leaderboard):
             server, user, teas_brewed = result
             real_name = user.real_name
