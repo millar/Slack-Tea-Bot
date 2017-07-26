@@ -45,7 +45,7 @@ class Listener(object):
                 event = sc.rtm_read()
                 if event and event[0].get('type', '') == 'message':
                     Dispatcher(self.teabot).dispatch(event)
-                time.sleep(1)
+                time.sleep(0.1)
 
 
 class Dispatcher(object):
@@ -122,15 +122,46 @@ class Dispatcher(object):
         return post_message(HELP_TEXT,  self.channel)
 
     def leaderboard(self):
-        leaderboard = self.session.query(User).filter(User.tea_type.isnot(None)).order_by(User.teas_brewed.desc()).all()
-        _message = '*Teabot Leaderboard*\n\n'
-        for index, user in enumerate(leaderboard):
-            if user.teas_brewed > 0:
+        since = self.command_body.strip()
+
+        time = datetime.today()
+
+        if since:
+            years = re.compile(r'(^|\s|,\s?)(\d)\s?(y(|ears?))').search(since)
+            if years and int(years.group(2)) > 0:
+                time -= timedelta(days=int(years.group(2)) * 365)
+
+            months = re.compile(r'(^|\s|,\s?)(\d)\s?(m(|onths?))').search(since)
+            if months and int(months.group(2)) > 0:
+                time -= timedelta(days=int(months.group(2)) * 30)
+
+            weeks = re.compile(r'(^|\s|,\s?)(\d)\s?(w(|eeks?))').search(since)
+            if weeks and int(weeks.group(2)) > 0:
+                time -= timedelta(weeks=int(weeks.group(2)))
+
+            days = re.compile(r'(^|\s|,\s?)(\d)\s?(d(|ays?))').search(since)
+            if days and int(days.group(2)) > 0:
+                time -= timedelta(days=int(days.group(2)))
+        else:
+            time -= timedelta(weeks=12)
+
+        formatted_since = time.replace(hour=0, minute=0).strftime("%d %b, '%y")
+
+        sq = self.session.query(Customer.server_id, func.sum(Customer.server_id).label('Count')).filter(Customer.created >= time).group_by(Customer.server_id).subquery()
+        leaderboard = self.session.query(Server, User, func.count(sq.c.Count)).join(User).join(sq, Server.id==sq.c.server_id).group_by(Server.user_id).all()
+        _message = '*Teabot Leaderboard* (since %s)\n\n' % formatted_since
+
+        results = [{'user': user, 'teas_brewed': teas_brewed} for _, user, teas_brewed in leaderboard]
+        results = sorted(results, key=lambda d: d['teas_brewed'], reverse=True)
+
+        for index, result in enumerate(results):
+            teas_brewed = result['teas_brewed']
+            real_name = result['user'].real_name
+            if teas_brewed > 0:
                 prefix = ''
                 if index == 0:
                     prefix = ':trophy:'
-                _message += '%s. %s_%s_ has brewed *%s* cups of tea\n' % (index + 1, prefix, user.real_name, user.teas_brewed)
-
+                _message += '%s. %s_%s_ has brewed *%s* cups of tea\n' % (index + 1, prefix or '', real_name, teas_brewed)
         return post_message(_message, self.channel)
 
     @require_registration
