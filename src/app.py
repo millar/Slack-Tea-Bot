@@ -13,13 +13,15 @@ from tasks import brew_countdown, update_slack_users
 from utils import post_message, add_reaction
 
 COMMAND_RE = re.compile(
-    r'^<@([\w\d]+)>:? (register|brew|me|please|pls|yes|stats|leaderboard|nominate|update_users|yo|ping|help)\s?(.*)$',
+    r'^<@([\w\d]+)>:?\s+(register|brew|me|please|pls|yes|stats|leaderboard|nominate|update_users|yo|ping|help)(\s+.*)?$',
     flags=re.IGNORECASE
 )
 ALIASES = {
     'please': 'me',
     'pls': 'me',
     'yes': 'me',
+    ':raising_hand:': 'me',
+    ':tea:': 'me',
 }
 MENTION_RE = re.compile(r'^<@([\w\d]+)>$')
 MENTION_ANYWHERE_RE = re.compile(r'<@([\w\d]+)>')
@@ -63,13 +65,12 @@ class Dispatcher(object):
 
         try:
             slack_user_id, command, command_body = COMMAND_RE.search(text).groups()
+            command = command.strip().lower()
             if command in ALIASES:
                 command = ALIASES[command]
             if slack_user_id != self.teabot.slack_id:
                 return
-
-            command = command.strip().lower()
-            self.command_body = command_body.strip()
+            self.command_body = (command_body or '').strip()
             self.request_user = UserManager.get_by_slack_id(event[0].get('user', ''))
             if not self.request_user:
                 return
